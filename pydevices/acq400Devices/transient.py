@@ -247,14 +247,14 @@ class ACQ2106_MGT(MDSplus.Device):
 
         print('Finished init')
 
-    def capture(self):
+
+    def arm(self):
         print("Capturing now.")
         uut = acq400_hapi.Acq400(self.node.data())
-        uut.s14.mgt_taskset = '1'
-        uut.s14.mgt_run_shot = str(int(250 + 2))
-        uut.run_mgt()
+        uut.s0.set_arm
         print("Finished capture.")
     CAPTURE=capture
+
 
     def soft_trigger(self):
         uut = acq400_hapi.Acq400(self.node.data(), monitor=False)
