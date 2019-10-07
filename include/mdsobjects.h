@@ -267,7 +267,7 @@ public:
     /// Return the result of TDI decompile
     char *decompile();
 
-    /// Make a dymanically allocated copy of the Data instance Tee
+    /// Make a dymanically allocated copy of the Data instance Tree
     Data *clone();
 
     /// serialize data into non terminated char array using serializeData
@@ -1534,7 +1534,7 @@ private:
 /// ordered sequence of data. Nothing in common with software objects
 /// signalling systems.
 
-class Signal: public Compound {
+class EXPORT Signal: public Compound {
 public:
 #ifndef DOXYGEN // hide this part from documentation
     Signal(int dtype, int length, char *ptr, int nDescs, char **descs, Data *units = 0, Data *error = 0, Data *help = 0, Data *validation = 0):
@@ -1542,6 +1542,9 @@ public:
     {
 	setAccessory(units, error, help, validation);
     }
+//Signal descriptor requires length = 0, so override the method
+    void * convertToDsc();
+
 #endif // DOXYGEN end of hidden code
 
     Signal(Data *data, Data *raw, Data *dimension, Data *units = 0, Data *error = 0, Data *help = 0, Data *validation = 0)
@@ -2878,6 +2881,7 @@ public:
     ///
     TreeNode(int nid, Tree *tree, Data *units = 0, Data *error = 0, Data *help = 0, Data *validation = 0);
     TreeNode() {tree = 0;}
+    ~TreeNode();
     //Force new and delete in dll for windows
     void *operator new(size_t sz);
     void operator delete(void *p);
@@ -2886,7 +2890,7 @@ public:
     virtual Tree *getTree() { return tree; }
 
     /// Set the associated Tree instance
-    virtual void setTree(Tree *tree) {this->tree = tree;}
+    virtual void setTree(Tree *tree); 
 
     /// Get the path name for this node
     virtual char *getPath();
@@ -2928,6 +2932,10 @@ public:
 
     /// Retrieve node from this tree by its realPath string
     virtual TreeNode *getNode(String *relPathStr);
+
+    //Retrieve node from this tree by its realPath string with a wild card
+    virtual TreeNodeArray *getNodeWild(char const * path, int usageMask);
+    virtual TreeNodeArray *getNodeWild(char const *path);
 
     virtual Data *getData();
     virtual void putData(Data *data);
@@ -3077,10 +3085,22 @@ public:
     virtual void makeSegmentMinMax(Data *start, Data *end, Data *time, Array *initialData, TreeNode*resampledNode, int resFactor = 100);
 
 	//Begin and fill a new data segment. At the same time make a resampled version
-    virtual void makeSegmentResampled(Data *start, Data *end, Data *time, Array *initialData, TreeNode*resampledNode);
+    virtual void makeSegmentResampled(Data *start, Data *end, Data *time, Array *initialData, TreeNode*resampledNode, int resFactor = 100);
+
+	//Begin and fill a new data segment. At the same time make a resampled minmax version (two samples (min and max) every 100 original samples)
+    virtual void beginSegmentMinMax(Data *start, Data *end, Data *time, Array *initialData, TreeNode*resampledNode, int resFactor = 100);
+
+	//Begin and fill a new data segment. At the same time make a resampled version
+    virtual void beginSegmentResampled(Data *start, Data *end, Data *time, Array *initialData, TreeNode*resampledNode, int resFactor = 100);
 
     /// Write (part of) data segment
     virtual void putSegment(Array *data, int ofs);
+    
+    /// Write (part of) data segment
+    virtual void putSegmentResampled(Array *data, int ofs, TreeNode*resampledNode, int resFactor = 100);
+
+    /// Write (part of) data segment
+    virtual void putSegmentMinMax(Array *data, int ofs, TreeNode*resampledNode, int resFactor = 100);
 
     /// Update start, end time and dimension for the last segment
     virtual void updateSegment(Data *start, Data *end, Data *time);
@@ -3741,7 +3761,7 @@ public:
     /// | NORMAL       | set the tree for normal operations reading and writing data     |
     ///
     Tree(char const * name, int shot, char const * mode);
-
+    Tree(Tree *tree);
     ~Tree();
 
     void *operator new(size_t sz);
@@ -3781,6 +3801,9 @@ public:
 
     /// Get the name of the tree as c string
     const char *getName() const { return name.c_str(); }
+
+    /// Get shot number
+    int getShot() const { return shot; }
 
     /// Get the name of this tree as a std::string
     std::string getNameStr() const { return name; }
@@ -3926,7 +3949,40 @@ public:
     /// can not be deleted.
     ///
     void deletePulse(int shot);
-
+    
+    // Evaluate an expression in the context of the tree - Thread Safe, provided setActiveTree is not used
+    Data *tdiEvaluate(Data *data);
+    
+    // Compute an expression in the context of the tree - Thread Safe, provided setActiveTree is not used
+    Data *tdiData(Data *data);
+    
+    // Compile an expression in the context of the tree - Thread Safe, provided setActiveTree is not used
+    Data *tdiCompile(const char *expr);
+    Data *tdiCompile(const char *expr, Data *arg1);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6, Data *arg7);
+    Data *tdiCompile(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6, Data *arg7, Data *arg8);
+    
+    // Compile an expression with arguments in the context of the tree - ThreaSafe, provided setActiveTree is not used
+    Data *tdiCompile(const char *expr, int nArgs ...);
+    
+    // Execute an  expression in the context of the tree - Thread Safe, provided setActiveTree is not used
+    Data *tdiExecute(const char *expr);
+    Data *tdiExecute(const char *expr, Data *arg1);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6, Data *arg7);
+    Data *tdiExecute(const char *expr, Data *arg1, Data *arg2, Data *arg3, Data *arg4, Data *arg5, Data *arg6, Data *arg7, Data *arg8);
+    
+    // Execute an expression with arguments in the context of the tree - Thread Safe, provided setActiveTree is not used
+    Data *tdiExecute(const char *expr, int nArgs ...);
 
     StringArray *findTags(char *wild);
     void removeTag(char const * tagName);

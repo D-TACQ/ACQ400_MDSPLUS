@@ -127,7 +127,7 @@ AS_CASE(["$host"],
 AC_CHECK_SIZEOF(int *)
 AC_SYS_LARGEFILE
 
-JAVACFLAGS="-encoding UTF-8"
+JAVACFLAGS="-encoding UTF-8 -source \$(JAVASOURCE)"
 FOR_LINKSHARED=""
 
 AC_MSG_CHECKING([whether to build shared libraries])
@@ -170,48 +170,21 @@ AS_CASE([$enable_perf],
         [yes], [AC_DEFINE([USE_PERF], [], [Define if you want to collect performance statistics -- linux only])])
 AC_MSG_RESULT([$enable_perf])
 
-AC_MSG_CHECKING([whether to build the java components])
-AC_ARG_ENABLE([java],
-              [AS_HELP_STRING([--disable-java],
-                              [Do not build java libraries and applications])],
-              [],
-              [AS_VAR_SET([enable_java], [yes])])
-
-dnl # Add address sanitizer options to flags, if requested. Only useful for GCC
-dnl # version 4.8 and later.
-dnl AC_ARG_ENABLE([sanitize-address],
-dnl  [AS_HELP_STRING(
-dnl    [--enable-sanitize-address],
-dnl    [Enable memory error detection using address sanitizer @<:@default=no@:>@]
-dnl  )],
-dnl  [enable_san_a="$enableval"],
-dnl  [enable_san_a="no"]
-dnl )
-
-dnl AC_ARG_ENABLE([sanitize-undefined],
-dnl  [AS_HELP_STRING(
-dnl    [--enable-sanitize-undefined],
-dnl    [Enable undefined behavior detection using undefined sanitizer @<:@default=no@:>@]
-dnl  )],
-dnl  [enable_san_u="$enableval"],
-dnl  [enable_san_u="no"]
-dnl )
-
-dnl AC_ARG_ENABLE([sanitize-thread],
-dnl  [AS_HELP_STRING(
-dnl    [--enable-sanitize-address],
-dnl    [Enable race condition detection using thread sanitizer @<:@default=no@:>@]
-dnl  )],
-dnl  [enable_san_t="$enableval"],
-dnl  [enable_san_t="no"]
-dnl )
-
 dnl AC_ARG_ENABLE([universal],
 dnl              [AS_HELP_STRING([--enable-universal],
 dnl                              [Build MacOSX Universal Binary])],
 dnl              [],
 dnl              [AS_VAR_SET([enable_universal], [no])])
 dnl
+
+AC_MSG_CHECKING([whether to build the java components])
+AC_ARG_ENABLE([java],
+              [AS_HELP_STRING([--disable-java],
+                              [Do not build java libraries and applications])],
+              [],
+              [AS_VAR_SET([enable_java], [yes])])
+AM_CONDITIONAL([ENABLE_JAVA],[AS_VAR_TEST_SET([enable_java])])
+
 dnl this new java section hoses macos x... why not use the autoconf java macros?
 dnl I'm faking a disable so I can enable by hand later...
 dnl AS_CASE([$host_vendor],
@@ -222,7 +195,6 @@ dnl                 [AS_VAR_IF([enable_universal], [yes], [CFLAGS="-O3 -g -isysr
 dnl                                                       [LDFLAGS="-Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -arch i386 -arch ppc"]
 dnl                                                       [F77=fort77])])
 dnl AC_MSG_RESULT([$enable_java])
-
 
 # //////////////////////////////////////////////////////////////////////////// #
 # ///  JDK   ///////////////////////////////////////////////////////////////// #
@@ -245,15 +217,14 @@ AC_ARG_WITH([jdk],
 AC_ARG_WITH([java_target],
 	    [AS_HELP_STRING([--with-java_target=version],
                             [specify version of compiled mdsobjects classes (i.e. 6)])],
-            [AS_VAR_SET([JAVAVERSION], ["-source $withval -target $withval"])],
-            [AS_VAR_SET([JAVAVERSION], [])])
+            [AS_VAR_APPEND([JAVACFLAGS], [" -target $withval"])],
+            [AS_VAR_APPEND([JAVACFLAGS], [" -target \$(JAVASOURCE)"])])
 
 AC_ARG_WITH([java_bootclasspath],
 	    [AS_HELP_STRING([--with-java_bootclasspath=bootclasspath],
                             [specify the bootclasspath option for use with --with-java_target (i.e. /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0/jre/lib/rt.jar)])],
-            [AS_VAR_APPEND([JAVAVERSION], [" -bootclasspath $withval"])],
-            [AS_VAR_APPEND([JAVAVERSION], [])])
-AC_SUBST([JAVAVERSION])
+            [AS_VAR_APPEND([JAVACFLAGS], [" -bootclasspath $withval"])],
+            [AS_VAR_APPEND([JAVACFLAGS], [" \$(JAVABOOTCLASSPATH)"])])
 
 AS_CASE([$enable_java],
         [yes], [AC_MSG_CHECKING([for presence of Java Development Kit])
@@ -269,10 +240,9 @@ AS_CASE([$enable_java],
                 AC_MSG_RESULT([$with_jdk])
                 AC_PATH_PROG([JAVAC], [javac], [], [$with_jdk/bin$PATH_SEPARATOR$PATH])
                 AC_PATH_PROG([JAR], [jar], [], [$with_jdk/bin$PATH_SEPARATOR$PATH])
-                AC_PATH_PROG([RMIC], [rmic], [], [$with_jdk/bin$PATH_SEPARATOR$PATH])])
+                AC_PATH_PROG([RMIC], [rmic], [], [$with_jdk/bin$PATH_SEPARATOR$PATH])]) 
 
-
-
+AX_CHECK_JAVA_VERSION([1.8],[AS_VAR_IF([enable_sanitize], [address], [skip_junit=yes])],[skip_junit=yes])
 
 AM_CONDITIONAL([GLOBUSLICENSE], [test -r $exec_prefix/GLOBUS_LICENSE])
 
@@ -367,6 +337,8 @@ AS_CASE([$host],
 AM_CONDITIONAL([MINGW], [AS_VAR_TEST_SET([MINGW])])
 AM_COND_IF([MINGW], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
 
+AM_CONDITIONAL([SKIP_JUNIT],[AS_VAR_TEST_SET([skip_junit])||AS_VAR_TEST_SET([MINGW])])
+
 AC_MSG_CHECKING([for visual studio])
 AC_ARG_WITH([visual_studio],
             [AS_HELP_STRING([--with-visual-studio],
@@ -416,6 +388,7 @@ JDK_LIVECONNECT="$with_jdk/jre/lib/plugin.jar"
 TAR_EXCLUDE="-e"
 HUP_TO_XINETD=""
 HUP_TO_INETD=""
+JRE="jre"
 UILCMD="uil"
 FOR_LDFLAGS=""
 SHARETYPE=".so"
@@ -424,8 +397,6 @@ THREAD="-pthread"
 MITDEVICESIO_TARGETS=""
 case "$host" in
 *mingw*)
-       JRE = "/jre";
-       UIL = "/usr/bin/X11";
        MAKEFLAG_J=""
        MAKEFLAG_O=""
        LIBPRE=""
@@ -463,8 +434,6 @@ case "$host" in
        jni_md_inc_dir="$with_jdk/include/win32";;
 
 *86*linux*)
-       JRE = "/jre";
-       UIL = "/usr/bin/X11";
        CFLAGS="$CFLAGS -fpic -shared-libgcc -fsigned-char -fno-strict-aliasing ";
        FORLD="$FC";
        LD="gcc"
@@ -522,8 +491,6 @@ case "$host" in
        HUP_TO_INETD="kill -HUP \`/sbin/pidof inetd\`";
        ;;
 *arm-xilinx-linux-gnueabi) echo "configuring for Xylinx zynq board (arm cortex a9)";
-       JRE = "/jre";
-       UIL = "/usr/bin/X11";
        CC=arm-xilinx-linux-gnueabi-gcc;
        LD=arm-xilinx-linux-gnueabi-ld;
        AR=arm-xilinx-linux-gnueabi-ar;
@@ -553,8 +520,6 @@ case "$host" in
        HUP_TO_XINETD="/etc/rc.d/init.d/xinetd restart";
        HUP_TO_INETD="kill -HUP \`/sbin/pidof inetd\`";;
 *linux*) CFLAGS="$CFLAGS -fpic -fsigned-char -shared-libgcc -fno-strict-aliasing";
-       JRE = "/jre";
-       UIL = "/usr/bin/X11";
        FCFLAGS="$FCFLAGS -fno-range-check";
        FORLD="$FC"
        FOR_LDFLAGS="-lg2c"
@@ -574,8 +539,6 @@ case "$host" in
        HUP_TO_XINETD="/etc/rc.d/init.d/xinetd restart";
        HUP_TO_INETD="kill -HUP \`/sbin/pidof inetd\`";;
 *apple-darwin*) echo "Configuring for MacOS X";
-       JRE = "";
-       UIL = "/usr/bin/uil";
        THREAD=""
        MACOSX="macosx"
        CFLAGS="$CFLAGS -arch x86_64 -dynamic -Wno-error=unused-command-line-argument -Wno-missing-field-initializers -Wno-parentheses-equality";
@@ -1368,14 +1331,19 @@ AC_OUTPUT(Makefile.inc
           hdf5/Makefile
           idlmdsevent/Makefile
           idlmdswidgets/Makefile
-          javaclient/Makefile
-          javadispatcher/Makefile
           javamds/Makefile
-          javascope/Makefile
-          javatraverser/Makefile
-          javatraverser2/Makefile
-          javatraverser2/java/mds/mdslib/Makefile
-          javadevices/Makefile
+          java/Makefile
+          java/mdsplus/Makefile
+          java/mdsplus-api/Makefile
+          java/mdsplus-api/src/main/jni/mds/mdslib/Makefile
+          java/mdsplus-api/tests/Makefile
+          java/mdsobjects/Makefile
+          java/mdsobjects/docs/Makefile
+          java/jdispatcher/Makefile
+          java/jscope/Makefile
+          java/jtraverser/Makefile
+          java/jtraverser2/Makefile
+          java/jdevices/Makefile
           LabView/Makefile
           manpages/Makefile
           macosx/Makefile
@@ -1392,8 +1360,6 @@ AC_OUTPUT(Makefile.inc
 	  python/MDSplus/_version.py
           python/MDSplus/docs/Makefile
           python/MDSplus/tests/Makefile
-          mdsobjects/java/Makefile
-          mdsobjects/java/docs/Makefile
           mdsobjects/labview/Makefile
           mdsmisc/Makefile
           mdsshr/Makefile
