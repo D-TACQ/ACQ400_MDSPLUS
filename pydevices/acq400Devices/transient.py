@@ -70,8 +70,8 @@ class TRANSIENT(MDSplus.Device):
 
     debug=None
 
-
     trig_types=[ 'hard', 'soft', 'automatic']
+
 
     class MDSWorker(threading.Thread):
         NUM_BUFFERS = 20
@@ -90,7 +90,6 @@ class TRANSIENT(MDSplus.Device):
 
             for i in range(self.nchans):
                 self.chans.append(getattr(self.dev, 'INPUT_%3.3d'%(i+1)))
-                # self.decim.append(getattr(self.dev, 'INPUT_%3.3d:DECIMATE' %(i+1)).data())
 
             self.seg_length = self.dev.seg_length.data()
             self.segment_bytes = self.seg_length*self.nchans*np.int16(0).nbytes
@@ -117,52 +116,10 @@ class TRANSIENT(MDSplus.Device):
             if self.dev.debug:
                 print("MDSWorker running")
 
-            event_name = self.dev.seg_event.data()
-
-            if self.dev.hw_filter.length > 0:
-                dt = 1./self.dev.freq.data() * 2 ** self.dev.hw_filter.data()
-            else:
-                dt = 1./self.dev.freq.data()
-
-            decimator = lcma(self.decim)
-
-            if self.seg_length % decimator:
-                self.seg_length = (self.seg_length // decimator + 1) * decimator
-
-            # self.dims = []
-            # for i in range(self.nchans):
-            #     self.dims.append(MDSplus.Range(0., (self.seg_length-1)*dt, dt*self.decim[i]))
-
             self.device_thread.start()
 
-            segment = 0
-            first = True
-            running = self.dev.running
-            max_segments = self.dev.max_segments.data()
-            print "max_segments = {}".format(max_segments)
-            while running.on and segment < max_segments:
-                try:
-                    buf = self.full_buffers.get(block=True, timeout=1)
-                except Queue.Empty:
-                    continue
-
-                i = 0
-                cycle = 1
-                # for c in self.chans:
-                #     if c.on:
-                        # b = buf[i::self.nchans]
-                        # print "Making segment now! Buf len: {}, channel: {}".format(len(b), i+1)
-                        # c.putData(b)
-                        # c.makeSegment(self.dims[i].begin, self.dims[i].ending, self.dims[i], b)
-                        # self.dims[i] = MDSplus.Range(self.dims[i].begin + self.seg_length*dt, self.dims[i].ending + self.seg_length*dt, dt*self.decim[i])
-                    # i += 1
-                # segment += 1
-                MDSplus.Event.setevent(event_name)
-
-                self.empty_buffers.put(buf)
-
-            self.dev.trig_time.record = self.device_thread.trig_time - ((self.device_thread.io_buffer_size / np.int16(0).nbytes) * dt)
-            self.device_thread.stop()
+            # self.device_thread.stop()
+            self.device_thread.join()
 
         class DeviceWorker(threading.Thread):
             running = False
