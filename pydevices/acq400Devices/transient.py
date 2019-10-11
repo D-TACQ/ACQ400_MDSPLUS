@@ -36,7 +36,7 @@ try:
 except:
     acq400_hapi = __import__('acq400_hapi', globals())
 
-class ACQ2106_MGT(MDSplus.Device):
+class TRANSIENT(MDSplus.Device):
     """
     D-Tacq ACQ2106_MGT support.
 
@@ -44,7 +44,7 @@ class ACQ2106_MGT(MDSplus.Device):
 
     parts=[
         # The user will need to change the hostname to the relevant hostname/IP.
-        {'path':':NODE','type':'text','value':'acq2106_157', 'options':('no_write_shot',)},
+        {'path':':NODE','type':'text','value':'acq2106_085', 'options':('no_write_shot',)},
         {'path':':SITE','type':'numeric', 'value': 1, 'options':('no_write_shot',)},
         {'path':':TRIG_MODE','type':'text', 'value': 'role_default', 'options':('no_write_shot',)},
         {'path':':ROLE','type':'text', 'value': 'master', 'options':('no_write_shot',)},
@@ -61,11 +61,11 @@ class ACQ2106_MGT(MDSplus.Device):
     uut = acq400_hapi.Acq400(parts[0]["value"], monitor=False)
     nchans = uut.nchan()
     for i in range(nchans):
-        parts.append({'path':':INPUT_%2.2d'%(i+1,),'type':'signal','options':('no_write_model','write_once',),
+        parts.append({'path':':INPUT_%3.3d'%(i+1,),'type':'signal','options':('no_write_model','write_once',),
                       'valueExpr':'head.setChanScale(%d)' %(i+1,)})
-        parts.append({'path':':INPUT_%2.2d:DECIMATE'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        parts.append({'path':':INPUT_%2.2d:COEFFICIENT'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        parts.append({'path':':INPUT_%2.2d:OFFSET'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        parts.append({'path':':INPUT_%3.3d:DECIMATE'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        parts.append({'path':':INPUT_%3.3d:COEFFICIENT'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        parts.append({'path':':INPUT_%3.3d:OFFSET'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
     del i
 
     debug=None
@@ -77,18 +77,20 @@ class ACQ2106_MGT(MDSplus.Device):
         NUM_BUFFERS = 20
 
         def __init__(self,dev):
-            super(ACQ2106_MGT.MDSWorker,self).__init__(name=dev.path)
+            super(TRANSIENT.MDSWorker,self).__init__(name=dev.path)
             threading.Thread.__init__(self)
 
             self.dev = dev.copy()
 
             self.chans = []
             self.decim = []
-            self.nchans = 16 # TODO: FIX THIS
+
+            self.uut = acq400_hapi.Acq400(self.dev.node.data(), monitor=False)
+            self.nchans = self.uut.nchan()
 
             for i in range(self.nchans):
-                self.chans.append(getattr(self.dev, 'INPUT_%2.2d'%(i+1)))
-                self.decim.append(getattr(self.dev, 'INPUT_%2.2d:DECIMATE' %(i+1)).data())
+                self.chans.append(getattr(self.dev, 'INPUT_%3.3d'%(i+1)))
+                # self.decim.append(getattr(self.dev, 'INPUT_%3.3d:DECIMATE' %(i+1)).data())
 
             self.seg_length = self.dev.seg_length.data()
             self.segment_bytes = self.seg_length*self.nchans*np.int16(0).nbytes
@@ -127,9 +129,9 @@ class ACQ2106_MGT(MDSplus.Device):
             if self.seg_length % decimator:
                 self.seg_length = (self.seg_length // decimator + 1) * decimator
 
-            self.dims = []
-            for i in range(self.nchans):
-                self.dims.append(MDSplus.Range(0., (self.seg_length-1)*dt, dt*self.decim[i]))
+            # self.dims = []
+            # for i in range(self.nchans):
+            #     self.dims.append(MDSplus.Range(0., (self.seg_length-1)*dt, dt*self.decim[i]))
 
             self.device_thread.start()
 
@@ -146,14 +148,15 @@ class ACQ2106_MGT(MDSplus.Device):
 
                 i = 0
                 cycle = 1
-                for c in self.chans:
-                    if c.on:
-                        b = buf[i::self.nchans]
-                        print "Making segment now! Buf len: {}, channel: {}".format(len(b), i+1)
-                        c.makeSegment(self.dims[i].begin, self.dims[i].ending, self.dims[i], b)
-                        self.dims[i] = MDSplus.Range(self.dims[i].begin + self.seg_length*dt, self.dims[i].ending + self.seg_length*dt, dt*self.decim[i])
-                    i += 1
-                segment += 1
+                # for c in self.chans:
+                #     if c.on:
+                        # b = buf[i::self.nchans]
+                        # print "Making segment now! Buf len: {}, channel: {}".format(len(b), i+1)
+                        # c.putData(b)
+                        # c.makeSegment(self.dims[i].begin, self.dims[i].ending, self.dims[i], b)
+                        # self.dims[i] = MDSplus.Range(self.dims[i].begin + self.seg_length*dt, self.dims[i].ending + self.seg_length*dt, dt*self.decim[i])
+                    # i += 1
+                # segment += 1
                 MDSplus.Event.setevent(event_name)
 
                 self.empty_buffers.put(buf)
@@ -172,6 +175,7 @@ class ACQ2106_MGT(MDSplus.Device):
                 self.segment_bytes = mds.segment_bytes
                 self.freq = mds.dev.freq.data()
                 self.nchans = mds.nchans
+                self.chans = mds.chans
                 self.empty_buffers = mds.empty_buffers
                 self.full_buffers = mds.full_buffers
                 self.trig_time = 0
@@ -190,31 +194,25 @@ class ACQ2106_MGT(MDSplus.Device):
                 first = True
 
                 # trigger time out count initialization:
-                rc = acq400_hapi.MgtDramPullClient("acq2106_157")
+                #rc = acq400_hapi.MgtDramPullClient(self.node_addr)
+                uut = acq400_hapi.Acq400(self.node_addr, monitor=False)
 
-                try:
-                    for buf in rc.get_blocks(16, ncols=(2**22)/16/2, data_size=2):
-                        self.full_buffers.put(buf)
-                except socket.timeout as e:
-                    print("Got a timeout.")
-                    err = e.args[0]
-                    # this next if/else is a bit redundant, but illustrates how the
-                    # timeout exception is setup
+                # Get all data
+                data = uut.pull_data()
+                # print(len(data))
+                # print(self.chans)
+                # Put data in node
 
-                    if err == 'timed out':
-                        time.sleep(1)
-                        print (' recv timed out, retry later')
-                        # continue                  else:
-                        print (e)
-                        # break
-                except socket.error as e:
-                    # Something else happened, handle error, exit, etc.
-                    print("socket error", e)
-                    self.full_buffers.put(buf[:self.segment_bytes-toread])
+                for pos, c in enumerate(self.chans):
+                    if c.on:
+                        print "DEBUG: ", pos, c
+                        c.putData(data[pos])
+                print "Finished storing data"
+
 
 
     def setChanScale(self,num):
-        chan=self.__getattr__('INPUT_%2.2d' % num)
+        chan=self.__getattr__('INPUT_%3.3d' % num)
         chan.setSegmentScale(MDSplus.ADD(MDSplus.MULTIPLY(chan.COEFFICIENT,MDSplus.dVALUE()),chan.OFFSET))
 
     def init(self):
@@ -251,9 +249,11 @@ class ACQ2106_MGT(MDSplus.Device):
     def arm(self):
         print("Capturing now.")
         uut = acq400_hapi.Acq400(self.node.data())
-        uut.s0.set_arm
+        # uut.s0.set_arm
+        shot_controller = acq400_hapi.ShotController([uuts])
+        shot_controller.run_shot()
         print("Finished capture.")
-    CAPTURE=capture
+    ARM=arm
 
 
     def soft_trigger(self):
@@ -262,7 +262,7 @@ class ACQ2106_MGT(MDSplus.Device):
 
 
     def pull(self):
-        print("Starting host pull now.")
+        print("Starting data collection now.")
         import os
         import sys
         from threading import Thread
