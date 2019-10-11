@@ -91,15 +91,6 @@ class TRANSIENT(MDSplus.Device):
             for i in range(self.nchans):
                 self.chans.append(getattr(self.dev, 'INPUT_%3.3d'%(i+1)))
 
-            self.seg_length = self.dev.seg_length.data()
-            self.segment_bytes = self.seg_length*self.nchans*np.int16(0).nbytes
-
-            self.empty_buffers = Queue.Queue()
-            self.full_buffers = Queue.Queue()
-
-            for i in range(self.NUM_BUFFERS):
-                self.empty_buffers.put(bytearray(self.segment_bytes))
-
             self.device_thread = self.DeviceWorker(self)
 
         def run(self):
@@ -118,7 +109,6 @@ class TRANSIENT(MDSplus.Device):
 
             self.device_thread.start()
 
-            # self.device_thread.stop()
             self.device_thread.join()
 
         class DeviceWorker(threading.Thread):
@@ -128,15 +118,9 @@ class TRANSIENT(MDSplus.Device):
                 threading.Thread.__init__(self)
                 self.debug = mds.dev.debug
                 self.node_addr = mds.dev.node.data()
-                self.seg_length = mds.dev.seg_length.data()
-                self.segment_bytes = mds.segment_bytes
                 self.freq = mds.dev.freq.data()
                 self.nchans = mds.nchans
                 self.chans = mds.chans
-                self.empty_buffers = mds.empty_buffers
-                self.full_buffers = mds.full_buffers
-                self.trig_time = 0
-                self.io_buffer_size = 4096
 
             def stop(self):
                 print "Setting running to false 1"
@@ -148,18 +132,12 @@ class TRANSIENT(MDSplus.Device):
 
                 self.running = True
 
-                first = True
-
-                # trigger time out count initialization:
-                #rc = acq400_hapi.MgtDramPullClient(self.node_addr)
                 uut = acq400_hapi.Acq400(self.node_addr, monitor=False)
 
                 # Get all data
                 data = uut.pull_data()
-                # print(len(data))
-                # print(self.chans)
-                # Put data in node
 
+                # Put data in node
                 for pos, c in enumerate(self.chans):
                     if c.on:
                         print "DEBUG: ", pos, c
