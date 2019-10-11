@@ -38,7 +38,7 @@ except:
 
 class TRANSIENT(MDSplus.Device):
     """
-    D-Tacq ACQ2106_MGT support.
+    D-Tacq transient capture support.
 
     """
 
@@ -136,7 +136,6 @@ class TRANSIENT(MDSplus.Device):
                 # Put data in node
                 for pos, c in enumerate(self.chans):
                     if c.on:
-                        print "DEBUG: ", pos, c
                         c.putData(data[pos])
                 print "Finished storing data"
 
@@ -181,7 +180,7 @@ class TRANSIENT(MDSplus.Device):
         print("Capturing now.")
         uut = acq400_hapi.Acq400(self.node.data())
         # uut.s0.set_arm
-        shot_controller = acq400_hapi.ShotController([uuts])
+        shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot()
         print("Finished capture.")
     ARM=arm
