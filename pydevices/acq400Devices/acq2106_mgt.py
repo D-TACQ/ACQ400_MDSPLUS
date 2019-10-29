@@ -58,18 +58,7 @@ class ACQ2106_MGT(MDSplus.Device):
         {'path':':RUNNING','type':'any', 'options':('no_write_model',)},
         ]
 
-    uut = acq400_hapi.Acq400(parts[0]["value"], monitor=False)
-    nchans = uut.nchan()
-    for i in range(nchans):
-        parts.append({'path':':INPUT_%2.2d'%(i+1,),'type':'signal','options':('no_write_model','write_once',),
-                      'valueExpr':'head.setChanScale(%d)' %(i+1,)})
-        parts.append({'path':':INPUT_%2.2d:DECIMATE'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        parts.append({'path':':INPUT_%2.2d:COEFFICIENT'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        parts.append({'path':':INPUT_%2.2d:OFFSET'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-    del i
-
     debug=None
-
 
     trig_types=[ 'hard', 'soft', 'automatic']
 
@@ -84,9 +73,15 @@ class ACQ2106_MGT(MDSplus.Device):
 
             self.chans = []
             self.decim = []
-            self.nchans = 16 # TODO: FIX THIS
+            self.uut = acq400_hapi.Acq400(self.node.data(), monitor=False)
+            self.nchans = uut.nchan()
 
             for i in range(self.nchans):
+                parts.append({'path':':INPUT_%2.2d'%(i+1,),'type':'signal','options':('no_write_model','write_once',),
+                      'valueExpr':'head.setChanScale(%d)' %(i+1,)})
+                parts.append({'path':':INPUT_%2.2d:DECIMATE'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+                parts.append({'path':':INPUT_%2.2d:COEFFICIENT'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+                parts.append({'path':':INPUT_%2.2d:OFFSET'%(i+1,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
                 self.chans.append(getattr(self.dev, 'INPUT_%2.2d'%(i+1)))
                 self.decim.append(getattr(self.dev, 'INPUT_%2.2d:DECIMATE' %(i+1)).data())
 
@@ -137,7 +132,6 @@ class ACQ2106_MGT(MDSplus.Device):
             first = True
             running = self.dev.running
             max_segments = self.dev.max_segments.data()
-            print "max_segments = {}".format(max_segments)
             while running.on and segment < max_segments:
                 try:
                     buf = self.full_buffers.get(block=True, timeout=1)
@@ -149,7 +143,6 @@ class ACQ2106_MGT(MDSplus.Device):
                 for c in self.chans:
                     if c.on:
                         b = buf[i::self.nchans]
-                        print "Making segment now! Buf len: {}, channel: {}".format(len(b), i+1)
                         c.makeSegment(self.dims[i].begin, self.dims[i].ending, self.dims[i], b)
                         self.dims[i] = MDSplus.Range(self.dims[i].begin + self.seg_length*dt, self.dims[i].ending + self.seg_length*dt, dt*self.decim[i])
                     i += 1
@@ -178,7 +171,6 @@ class ACQ2106_MGT(MDSplus.Device):
                 self.io_buffer_size = 4096
 
             def stop(self):
-                print "Setting running to false 1"
                 self.running = False
 
             def run(self):
@@ -190,7 +182,7 @@ class ACQ2106_MGT(MDSplus.Device):
                 first = True
 
                 # trigger time out count initialization:
-                rc = acq400_hapi.MgtDramPullClient("acq2106_157")
+                rc = acq400_hapi.MgtDramPullClient(self.node_addr)
 
                 try:
                     for buf in rc.get_blocks(16, ncols=(2**22)/16/2, data_size=2):
@@ -221,6 +213,13 @@ class ACQ2106_MGT(MDSplus.Device):
         print('Running init')
 
         uut = acq400_hapi.Acq400(self.node.data(), monitor=False)
+
+        for ch in range(1, uut.nchan()+1):
+            parts.append({'path':':INPUT_%2.2d'%(ch,),'type':'signal','options':('no_write_model','write_once',),
+                          'valueExpr':'head.setChanScale(%d)' %(ch,)})
+            parts.append({'path':':INPUT_%2.2d:DECIMATE'%(ch,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+            parts.append({'path':':INPUT_%2.2d:COEFFICIENT'%(ch,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+            parts.append({'path':':INPUT_%2.2d:OFFSET'%(ch,),'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
 
         trig_types=[ 'hard', 'soft', 'automatic']
         trg = self.trig_mode.data()
@@ -278,7 +277,6 @@ class ACQ2106_MGT(MDSplus.Device):
 
 
     def stop(self):
-        print "Setting running to false 2"
         self.running.on = False
     STOP=stop
 
