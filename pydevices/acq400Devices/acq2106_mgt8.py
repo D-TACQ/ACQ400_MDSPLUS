@@ -185,25 +185,8 @@ class ACQ2106_MGT8(MDSplus.Device):
                 # trigger time out count initialization:
                 rc = acq400_hapi.MgtDramPullClient(self.node_addr)
 
-                try:
-                    for buf in rc.get_blocks(16, ncols=(2**22)/16/2, data_size=2):                        
-                        self.full_buffers.put(buf)
-                except socket.timeout as e:
-                    print("Got a timeout.")
-                    err = e.args[0]
-                    # this next if/else is a bit redundant, but illustrates how the
-                    # timeout exception is setup
-
-                    if err == 'timed out':
-                        time.sleep(1)
-                        print (' recv timed out, retry later')
-                        # continue                  else:
-                        print (e)
-                        # break
-                except socket.error as e:
-                    # Something else happened, handle error, exit, etc.
-                    print("socket error", e)
-                    self.full_buffers.put(buf[:self.segment_bytes-toread])
+                for buf in rc.get_blocks(16, ncols=(2**22)/16/2, data_size=2):
+                    self.full_buffers.put(buf)
 
 
     def setChanScale(self,num):
