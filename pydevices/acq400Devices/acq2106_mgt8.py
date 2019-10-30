@@ -54,6 +54,8 @@ class ACQ2106_MGT8(MDSplus.Device):
         {'path':':HW_FILTER','type':'numeric', 'value':0, 'options':('no_write_shot',)},
         {'path':':SEG_LENGTH','type':'numeric', 'value': 2*(2**20), 'options':('no_write_shot',)},
         {'path':':MAX_SEGMENTS','type':'numeric', 'value': 2002, 'options':('no_write_shot',)},
+        {'path':':CAPTURE_BLOCKS','type':'numeric', 'value': 2000, 'options':('no_write_shot',)},
+        {'path':':OFFLOAD_BLOCKS','type':'numeric', 'value': 2000, 'options':('no_write_shot',)},
         {'path':':SEG_EVENT','type':'text', 'value': 'MGT_HOST_PULL', 'options':('no_write_shot',)},
         {'path':':TRIG_TIME','type':'numeric', 'options':('write_shot',)},
         {'path':':TRIG_STR','type':'text', 'options':('nowrite_shot',),'valueExpr':"EXT_FUNCTION(None,'ctime',head.TRIG_TIME)"},
@@ -240,7 +242,7 @@ class ACQ2106_MGT8(MDSplus.Device):
         print("Capturing now.")
         self.lazy_init()
         self.uut.s14.mgt_taskset = '1'
-        self.uut.s14.mgt_run_shot = str(int(250 + 2))
+        self.uut.s14.mgt_run_shot = str(int(self.CAPTURE_BLOCKS.data())
         self.uut.run_mgt()
         print("Finished capture.")
     CAPTURE=capture
@@ -260,6 +262,7 @@ class ACQ2106_MGT8(MDSplus.Device):
         import tempfile
         import subprocess
 
+        uut.s14.mgt_offload = str(int(self.OFFLOAD_BLOCKS.data())
         self.uut.s0.set_knob('set_abort', '1')
         self.running.on=True        
         thread = self.MDSWorker(self, self.uut.nchan())
