@@ -31,6 +31,7 @@ from queue import Queue, Empty
 import socket
 import time
 import inspect
+import os
 
 
 try:
@@ -50,10 +51,10 @@ class _ACQ400_BASE(MDSplus.Device):
 
     base_parts=[
         # The user will need to change the hostname to the relevant hostname/IP.
-        {'path':':NODE','type':'text','value':'acq1001_999', 'options':('no_write_shot',)},
+        {'path':':NODE','type':'text','value':'acq2106_999', 'options':('no_write_shot',)},
         {'path':':SITE','type':'numeric', 'value': 1, 'options':('no_write_shot',)},
         {'path':':TRIG_MODE','type':'text', 'value': 'role_default', 'options':('no_write_shot',)},
-        {'path':':ROLE','type':'text', 'value': 'master', 'options':('no_write_shot',)},
+        {'path':':ROLE','type':'text', 'value': 'fpmaster', 'options':('no_write_shot',)},
         {'path':':FREQ','type':'numeric', 'value': int(1e6), 'options':('no_write_shot',)},
         {'path':':SAMPLES','type':'numeric', 'value': int(1e5), 'options':('no_write_shot',)},
         {'path':':INIT_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',50,None),Method(None,'INIT',head))",'options':('no_write_shot',)},
@@ -307,6 +308,8 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         eslo = uut.cal_eslo[1:]
         eoff = uut.cal_eoff[1:]
         channel_data = uut.read_channels()
+        # import code
+        # code.interact(local=locals())
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
@@ -316,8 +319,83 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
                 expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
 
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
+                # import code
+                # code.interact(local=locals())
+
     STORE=store
 
+    pass
+
+
+class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
+    """
+    A sub-class of _ACQ400_TR_BASE that includes functions for MR data
+    and the extra nodes for MR processing.
+    """
+
+    mr_base_parts = [
+        {'path':':DT',      'type':'numeric','options':('write_shot',)},
+        {'path':':TB_BITS', 'type':'signal', 'options':('no_write_model','write_once',)},
+        {'path':':TB_NS',   'type':'signal', 'options':('no_write_model','write_once',)},
+        {'path':':DECIMS',  'type':'numeric','options':('write_model',)}
+        ]
+
+
+    def create_time_base(self, tb, dt):
+        # data is 1 dimensional, surely ?
+        # tb is a field in MDS TREE, 1:1 mapping with raw data
+        # tb = np.bitwise_and(data, [0b00000011])
+
+        # decims is a field in MDS TREE, 1:1 mapping with hardware settings. 2: is variable
+        decims = { 0: 2, 1: 1, 2: 32}
+        # dt is a field in MDS TREE, 1:1 mapping with MBCLOCK setting
+        # dt = 25.0
+
+        # tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
+        # tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
+        tb_final = np.zeros(tb.shape[-1])
+        ttime = 0
+        for ix, idec in enumerate(tb):
+                if tb[ix-2] == 1 and idec == 2 and ix > 3:
+                    idec = 1
+
+                if tb[ix-1] == 0 and idec == 2 and ix > 3:
+                    idec = 0
+                tb_final[ix] = ttime
+                ttime += decims[idec] * dt
+
+        return tb_final
+
+
+    def store(self):
+        uut = acq400_hapi.Acq400(self.node.data())
+        self.chans = []
+        nchans = uut.nchan()
+        for ii in range(nchans):
+            self.chans.append(getattr(self, 'INPUT_%3.3d'%(ii+1)))
+
+        uut.fetch_all_calibration()
+        eslo = uut.cal_eslo[1:]
+        eoff = uut.cal_eoff[1:]
+        channel_data = uut.read_channels()
+
+        for ic, ch in enumerate(self.chans):
+            if ch.on:
+                ch.putData(channel_data[ic])
+                ch.EOFF.putData(float(eoff[ic]))
+                ch.ESLO.putData(float(eslo[ic]))
+                expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
+                ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
+
+                if ic == 0:
+                    tb = np.bitwise_and(channel_data[ic], [0b00000011])
+                    dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+                    tb_ns = self.create_time_base(tb, dt)
+                    self.TB_BITS.putData(tb)
+                    self.DT.putData(dt)
+                    self.TB_NS.putData(tb_ns)
+        # return None
+    STORE=store
     pass
 
 
@@ -347,6 +425,7 @@ def assemble(cls):
 # probably easier for analysis code if ALWAYS INPUT_001
 #    inpfmt = INPFMT2 if cls.nchan < 100 else INPFMT3
     for ch in range(1, cls.nchan+1):
+        # expr =
         cls.parts.append({'path':inpfmt%(ch,), 'type':'signal','options':('no_write_model','write_once',),
                           'valueExpr':'head.setChanScale(%d)' %(ch,)})
         cls.parts.append({'path':inpfmt%(ch,)+':DECIMATE', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
@@ -354,6 +433,7 @@ def assemble(cls):
         cls.parts.append({'path':inpfmt%(ch,)+':OFFSET', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
         cls.parts.append({'path':inpfmt%(ch,)+':EOFF','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
         cls.parts.append({'path':inpfmt%(ch,)+':ESLO', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        # cls.parts.append({'path':inpfmt%(ch,)+':CAL_INPUT', 'type':'signal', 'valueExpr':Data.compile(expr), 'options':('no_write_shot')})
         cls.parts.append({'path':inpfmt%(ch,)+':CAL_INPUT', 'type':'signal'})
     return cls
 
