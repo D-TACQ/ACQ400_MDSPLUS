@@ -335,36 +335,42 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     mr_base_parts = [
         {'path':':DT',       'type':'numeric','options':('write_shot',)},
+        {'path':':TB_BITS',  'type':'signal', 'options':('no_write_model','write_once',)},
         {'path':':TB_NS',    'type':'signal', 'options':('no_write_model','write_once',)},
-        {'path':':DECIMS',   'type':'signal','options':('no_write_model','write_once',)},
-        {'path':':Fclk',     'type':'numeric','options':('write_model',)},
-        {'path':':trg0_src', 'type':'text','options':('write_model',)},
-        {'path':':evsel0',   'type':'numeric','options':('write_model',)},
-        {'path':':MR10DEC',  'type':'numeric','options':('write_model',)},
-        {'path':':STL',      'type':'text','options':('write_model',)}
+        # {'path':':DECIMS',   'type':'signal','options':('no_write_model','write_once',)},
+        {'path':':Fclk',     'type':'numeric','value':40000000,'options':('write_shot',)},
+        {'path':':trg0_src', 'type':'text',   'value':'EXT','options':('write_model',)},
+        {'path':':evsel0',   'type':'numeric','value':4,'options':('write_model',)},
+        {'path':':MR10DEC',  'type':'numeric','value':8,'options':('write_model',)},
+        {'path':':STL',      'type':'text',   'options':('write_model',)}
         ]
 
 
-    def _create_time_base(self, decims, dt):
-        tb = np.zeros(decims.shape[-1])
+    def create_time_base(self, tb, dt):
+        # data is 1 dimensional, surely ?
+        # tb is a field in MDS TREE, 1:1 mapping with raw data
+        # tb = np.bitwise_and(data, [0b00000011])
+
+        # decims is a field in MDS TREE, 1:1 mapping with hardware settings. 2: is variable
+        # decims = { 0: 2, 1: 1, 2: 32}
+        # dt is a field in MDS TREE, 1:1 mapping with MBCLOCK setting
+        # dt = 25.0
+
+        # tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
+        # tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
+        tb_final = np.zeros(tb.shape[-1])
         ttime = 0
-        for ix, dec in enumerate(decims):
-                tb[ix] = ttime
-                ttime += float(dec) * dt
+        for ix, idec in enumerate(tb):
+                if tb[ix-2] == 1 and idec >= 4 and ix > 3:
+                    idec = 1
 
-        return tb
+                if tb[ix-1] == 0 and idec >= 4 and ix > 3:
+                    idec = 0
+                tb_final[ix] = ttime
+                ttime += idec * dt
 
-    def create_time_base(self, uut):
-        decims = uut.read_decims()
-	print("decims: {}".format(len(decims)))
-        dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
-        tb_ns = self._create_time_base(decims, dt)
+        return tb_final
 
-	print("tb_ns: {}".format(len(tb_ns)))
-	print(tb_ns[0:20])
-        self.DECIMS.putData(decims)
-        self.DT.putData(dt)
-        self.TB_NS.putData(tb_ns)
 
     def store(self):
         uut = acq400_hapi.Acq400(self.node.data())
@@ -386,7 +392,16 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                 expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
 
-	self.create_time_base(uut)
+                if ic == 0:
+                    tb_bits = np.bitwise_and(channel_data[ic], [0b00000011])
+                    tb = uut.read_decims()
+                    dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+                    # decims = uut.read_decims()
+                    # self.DECIMS.putData(decims)
+                    tb_ns = self.create_time_base(tb, dt)
+                    self.TB_BITS.putData(tb_bits)
+                    self.DT.putData(dt)
+                    self.TB_NS.putData(tb_ns)
         # return None
     STORE=store
 
@@ -395,7 +410,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         # A customised ARM function for the acq2106_MR setup.
         uut = acq400_hapi.Acq400(self.node.data())
         shot_controller = acq400_hapi.ShotController(uut)
-        shot_controller.run_shot(remote_trigger=selects_trg_src(uut, self.trg0_src.data()))
+        shot_controller.run_shot(remote_trigger=self.selects_trg_src(uut, self.trg0_src.data()))
         return None
     ARM = arm
 
@@ -406,10 +421,10 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         return select_trg_src
 
 
-    def denormalise_stl(self, args):
+    def denormalise_stl(self, stl):
 
         # lines = args.stl.splitlines()
-        lines = self.STL.data().splitlines()
+        lines = stl.splitlines()
         stl_literal_lines = []
         for line in lines:
             if line.startswith('#') or len(line) < 2:
@@ -426,7 +441,8 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                     delayp = ''
 
                 delay, state = [int(x) for x in action.split(',')]
-                delayk = int(delay * self.Fclk.data() / 1000000)
+                # delayk = int(delay * self.Fclk.data() / 1000000)
+                delayk = int(delay * 40000000 / 1000000)
                 delaym = delayk - delayk % self.MR10DEC.data()
                 state = state << self.evsel0.data()
                 elem = "{}{:d},{:02x}".format(delayp, delaym, state)
@@ -437,15 +453,17 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         return "\n".join(stl_literal_lines)
 
 
-    def run_mr(self, args):
+    def init(self):
         # args.uuts = [ acq400_hapi.Acq2106(u, has_comms=False) for u in args.uut ]
-        uut = acq400_hapi.Acq400(self.node.data())
+        uut = acq400_hapi.Acq2106(self.node.data())
         # master = args.uuts[0]
-        # with open(self.STL.data(), 'r') as fp:
-        #     args.stl = fp.read()
+        self.STL.putData("/home/dt100/PROJECTS/acq400_hapi/user_apps/STL/acq2106_test10.stl")
+        with open(self.STL.data(), 'r') as fp:
+            stl = fp.read()
 
-        lit_stl = denormalise_stl()
+        lit_stl = self.denormalise_stl(stl)
 
+        NONE = 'DSP0'
         uut.s0.SIG_SRC_TRG_0 = NONE
 
         # for u in args.uuts:
@@ -458,7 +476,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         uut.s0.set_knob('SIG_EVENT_SRC_{}'.format(self.evsel0.data()), 'GPG')
         uut.s0.set_knob('SIG_EVENT_SRC_{}'.format(self.evsel0.data()+1), 'GPG')
         uut.s0.GPG_ENABLE = '1'
-
+    INIT = init
 
     pass
 
