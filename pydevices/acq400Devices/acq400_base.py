@@ -335,9 +335,9 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     mr_base_parts = [
         {'path':':DT',       'type':'numeric','options':('write_shot',)},
-        {'path':':TB_BITS',  'type':'signal', 'options':('no_write_model','write_once',)},
+        # {'path':':TB_BITS',  'type':'signal', 'options':('no_write_model','write_once',)},
         {'path':':TB_NS',    'type':'signal', 'options':('no_write_model','write_once',)},
-        # {'path':':DECIMS',   'type':'signal','options':('no_write_model','write_once',)},
+        {'path':':DECIMS',   'type':'signal','options':('no_write_model','write_once',)},
         {'path':':Fclk',     'type':'numeric','value':40000000,'options':('write_shot',)},
         {'path':':trg0_src', 'type':'text',   'value':'EXT','options':('write_model',)},
         {'path':':evsel0',   'type':'numeric','value':4,'options':('write_model',)},
@@ -361,11 +361,11 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         tb_final = np.zeros(tb.shape[-1])
         ttime = 0
         for ix, idec in enumerate(tb):
-                if tb[ix-2] == 1 and idec >= 4 and ix > 3:
-                    idec = 1
-
-                if tb[ix-1] == 0 and idec >= 4 and ix > 3:
-                    idec = 0
+                # if tb[ix-2] == 1 and idec >= 4 and ix > 3:
+                #     idec = 1
+                #
+                # if tb[ix-1] == 0 and idec >= 4 and ix > 3:
+                #     idec = 0
                 tb_final[ix] = ttime
                 ttime += idec * dt
 
@@ -396,10 +396,11 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                     tb_bits = np.bitwise_and(channel_data[ic], [0b00000011])
                     tb = uut.read_decims()
                     dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
-                    # decims = uut.read_decims()
-                    # self.DECIMS.putData(decims)
+                    decims = uut.read_decims()
+                    self.DECIMS.putData(decims)
                     tb_ns = self.create_time_base(tb, dt)
-                    self.TB_BITS.putData(tb_bits)
+                    # self.TB_BITS.putData(tb_bits)
+                    # self.TB_BITS.putData(tb)
                     self.DT.putData(dt)
                     self.TB_NS.putData(tb_ns)
         # return None
