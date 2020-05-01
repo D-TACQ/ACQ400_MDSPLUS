@@ -335,7 +335,6 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     mr_base_parts = [
         {'path':':DT',       'type':'numeric','options':('write_shot',)},
-        # {'path':':TB_BITS',  'type':'signal', 'options':('no_write_model','write_once',)},
         {'path':':TB_NS',    'type':'signal', 'options':('no_write_model','write_once',)},
         {'path':':DECIMS',   'type':'signal','options':('no_write_model','write_once',)},
         {'path':':Fclk',     'type':'numeric','value':40000000,'options':('write_shot',)},
@@ -346,21 +345,26 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         ]
 
 
-    def create_time_base(self, tb, dt):
-        # data is 1 dimensional, surely ?
-        # tb is a field in MDS TREE, 1:1 mapping with raw data
-        # tb = np.bitwise_and(data, [0b00000011])
-
-        # tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
-        # tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
-        tb_final = np.zeros(tb.shape[-1])
+    def _create_time_base(self, decims, dt):
+        tb = np.zeros(decims.shape[-1])
         ttime = 0
+        for ix, dec in enumerate(decims):
+                tb[ix] = ttime
+                ttime += float(dec) * dt
 
-        for ix, idec in enumerate(tb):
-                tb_final[ix] = ttime
-                ttime += idec * dt
-        return tb_final
+        return tb
 
+    def create_time_base(self, uut):
+        decims = uut.read_decims()
+	print("decims: {}".format(len(decims)))
+        dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+        tb_ns = self._create_time_base(decims, dt)
+
+	print("tb_ns: {}".format(len(tb_ns)))
+	print(tb_ns[0:20])
+        self.DECIMS.putData(decims)
+        self.DT.putData(dt)
+        self.TB_NS.putData(tb_ns)
 
     def store(self):
         uut = acq400_hapi.Acq400(self.node.data())
@@ -382,14 +386,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                 expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
 
-                if ic == 0:
-                    tb_bits = np.bitwise_and(channel_data[ic], [0b00000011])
-                    dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
-                    decims = uut.read_decims()
-                    self.DECIMS.putData(decims)
-                    tb_ns = self.create_time_base(decims, dt)
-                    self.DT.putData(dt)
-                    self.TB_NS.putData(tb_ns)
+	self.create_time_base(uut)
         # return None
     STORE=store
 
