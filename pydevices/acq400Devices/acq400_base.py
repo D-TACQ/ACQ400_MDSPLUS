@@ -351,24 +351,14 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         # tb is a field in MDS TREE, 1:1 mapping with raw data
         # tb = np.bitwise_and(data, [0b00000011])
 
-        # decims is a field in MDS TREE, 1:1 mapping with hardware settings. 2: is variable
-        # decims = { 0: 2, 1: 1, 2: 32}
-        # dt is a field in MDS TREE, 1:1 mapping with MBCLOCK setting
-        # dt = 25.0
-
         # tb_final is a TEMPORARY value, created on demand from MDS VALUE actions (gets) on TREE
         # tb_final does NOT have a field (ideally, the MDS server will cache it to avoid recalc over N chan..)
         tb_final = np.zeros(tb.shape[-1])
         ttime = 0
+
         for ix, idec in enumerate(tb):
-                # if tb[ix-2] == 1 and idec >= 4 and ix > 3:
-                #     idec = 1
-                #
-                # if tb[ix-1] == 0 and idec >= 4 and ix > 3:
-                #     idec = 0
                 tb_final[ix] = ttime
                 ttime += idec * dt
-
         return tb_final
 
 
@@ -394,13 +384,10 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
                 if ic == 0:
                     tb_bits = np.bitwise_and(channel_data[ic], [0b00000011])
-                    tb = uut.read_decims()
                     dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
                     decims = uut.read_decims()
                     self.DECIMS.putData(decims)
-                    tb_ns = self.create_time_base(tb, dt)
-                    # self.TB_BITS.putData(tb_bits)
-                    # self.TB_BITS.putData(tb)
+                    tb_ns = self.create_time_base(decims, dt)
                     self.DT.putData(dt)
                     self.TB_NS.putData(tb_ns)
         # return None
