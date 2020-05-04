@@ -448,8 +448,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
         lit_stl = self.denormalise_stl(stl)
 
-        NONE = 'DSP0'
-        uut.s0.SIG_SRC_TRG_0 = NONE
+        uut.s0.SIG_SRC_TRG_0 = 'NONE'
 
         # for u in args.uuts:
         # acq400_hapi.Acq400UI.exec_args(uut, args)
