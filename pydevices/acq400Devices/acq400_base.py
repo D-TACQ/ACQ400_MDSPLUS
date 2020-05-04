@@ -356,12 +356,9 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     def create_time_base(self, uut):
         decims = uut.read_decims()
-	print("decims: {}".format(len(decims)))
         dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
         tb_ns = self._create_time_base(decims, dt)
 
-	print("tb_ns: {}".format(len(tb_ns)))
-	print(tb_ns[0:20])
         self.DECIMS.putData(decims)
         self.DT.putData(dt)
         self.TB_NS.putData(tb_ns)
