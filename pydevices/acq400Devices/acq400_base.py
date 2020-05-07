@@ -295,7 +295,7 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot()
         return None
-
+    _ARM=_arm
 
     def arm(self):
         thread = threading.Thread(target = self._arm)
@@ -307,6 +307,7 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         thread = threading.Thread(target = self._store)
         thread.start()
         return None
+    STORE=store
 
 
     def _store(self):
@@ -332,7 +333,7 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
 
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
 
-    STORE=store
+    _STORE=_store
 
     pass
 
