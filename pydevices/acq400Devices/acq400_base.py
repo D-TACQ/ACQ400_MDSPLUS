@@ -340,7 +340,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         {'path':':Fclk',     'type':'numeric','value':40000000,'options':('write_shot',)},
         {'path':':trg0_src', 'type':'text',   'value':'EXT','options':('write_model',)},
         {'path':':evsel0',   'type':'numeric','value':4,'options':('write_model',)},
-        {'path':':MR10DEC',  'type':'numeric','value':8,'options':('write_model',)},
+        {'path':':MR10DEC',  'type':'numeric','value':32,'options':('write_model',)},
         {'path':':STL',      'type':'text',   'options':('write_model',)}
         ]
 
