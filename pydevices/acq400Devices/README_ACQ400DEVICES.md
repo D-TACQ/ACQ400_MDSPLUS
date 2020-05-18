@@ -47,7 +47,7 @@ eg
 ```
 [pgm@hoy5 acq400Devices]$ for file in acq[21]*.py; do echo " * $file";grep '^# ACQ[12]' $file | sed -e 's/# /  * /'; done
 ```
- * acq1001_st.py
+* acq1001_st.py
   * ACQ1001_ST_8
   * ACQ1001_ST_16
   * ACQ1001_ST_24
@@ -55,7 +55,7 @@ eg
   * ACQ1001_ST_40
   * ACQ1001_ST_48
   * ACQ1001_ST_64
- * acq1001_tr.py
+* acq1001_tr.py
   * ACQ1001_TR_8
   * ACQ1001_TR_16
   * ACQ1001_TR_24
@@ -63,7 +63,7 @@ eg
   * ACQ1001_TR_40
   * ACQ1001_TR_48
   * ACQ1001_TR_64
- * acq2106_mr.py
+* acq2106_mr.py
   * ACQ2106_MR_8
   * ACQ2106_MR_16
   * ACQ2106_MR_24
@@ -76,7 +76,7 @@ eg
   * ACQ2106_MR_128
   * ACQ2106_MR_160
   * ACQ2106_MR_192
- * acq2106_st.py
+* acq2106_st.py
   * ACQ2106_ST_8
   * ACQ2106_ST_16
   * ACQ2106_ST_24
@@ -89,7 +89,7 @@ eg
   * ACQ2106_ST_128
   * ACQ2106_ST_160
   * ACQ2106_ST_192
- * acq2106_tr.py
+* acq2106_tr.py
   * ACQ2106_TR_8
   * ACQ2106_TR_16
   * ACQ2106_TR_24
