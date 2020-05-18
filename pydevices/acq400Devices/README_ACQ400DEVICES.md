@@ -1,6 +1,6 @@
 # ACQ400DEVICES: MDSplus support for ACQ400
 
-ACQ400 is a range of [DAQ Appliances](http://www.d-tacq.com/modproducts.shtml) comprising an networked [Carrier](http://www.d-tacq.com/modcarriers.shtml) and a pyload of one or more analog [Modules](http://www.d-tacq.com/modproducts_modules.shtml). The device support allows any carrier/payload combination to be used in number of **Operating Modes**.
+ACQ400 is a range of [DAQ Appliances](http://www.d-tacq.com/modproducts.shtml) comprising an networked [Carrier](http://www.d-tacq.com/modcarriers.shtml) and a payload of one or more DAQ [Modules](http://www.d-tacq.com/modproducts_modules.shtml). The device support allows any carrier/payload combination to be used in number of **Operating Modes**.
 
 For support and comment please contact: info@d-tacq.co.uk
 
@@ -19,7 +19,7 @@ For support and comment please contact: info@d-tacq.co.uk
 
 ## Operating Modes
  * **TR** Transient: store a shot at up to full rate to limit of onboard memory, post-shot upload to MDSplus.
- * **MG** Transient, but with extended, 8GByte memory (acq2106 only)
+ * **M8** Transient, but with extended, 8GByte memory (acq2106 only)
  * **MR** MultiRate Transient, with RUN/JOG/SPRINT variable rates to extend use of memory
  * **ST** Streaming: streaming capture, perhaps at reduced rate, segmented store to MDSplus
  * **MV** Streaming capture with multiple event captures at full rate.
