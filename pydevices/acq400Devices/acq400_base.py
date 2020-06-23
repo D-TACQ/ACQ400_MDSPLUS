@@ -289,16 +289,30 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
     taking a transient capture.
     """
 
-    def arm(self):
+
+    def _arm(self):
         uut = acq400_hapi.Acq400(self.node.data())
         shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot()
+        return None
+
+
+    def arm(self):
+        thread = threading.Thread(target = self._arm)
+        thread.start()
     ARM=arm
 
 
     def store(self):
+        thread = threading.Thread(target = self._store)
+        thread.start()
+        return None
+
+
+    def _store(self):
 
         uut = acq400_hapi.Acq400(self.node.data())
+        while uut.statmon.get_state() != 0: continue
         self.chans = []
         nchans = uut.nchan()
         for ii in range(nchans):
@@ -383,7 +397,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                 expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
 
-	self.create_time_base(uut)
+        self.create_time_base(uut)
         # return None
     STORE=store
 
@@ -391,7 +405,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
     def arm():
         # A customised ARM function for the acq2106_MR setup.
         uut = acq400_hapi.Acq400(self.node.data())
-        shot_controller = acq400_hapi.ShotController(uut)
+        shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot(remote_trigger=self.selects_trg_src(uut, self.trg0_src.data()))
         return None
     ARM = arm
