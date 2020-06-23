@@ -322,19 +322,20 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         eslo = uut.cal_eslo[1:]
         eoff = uut.cal_eoff[1:]
         channel_data = uut.read_channels()
-        # import code
-        # code.interact(local=locals())
+
+	DT=1000000/float(self.FREQ.data())
+	print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
                 ch.putData(channel_data[ic])
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
-                expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
-
-                ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
-                # import code
-                # code.interact(local=locals())
+		# Dim(Window(samples), range(time))
+                time_dim = MDSplus.Dimension(MDSplus.Window(0, len(channel_data[0]), 1),   MDSplus.Range(0, DT*len(channel_data[0]), DT))
+                # BUILD_SIGNAL(CAL VOLTS, RAW COUNTS, time_dim)
+                signal = MDSplus.Data.compile('BUILD_SIGNAL(BUILD_WITH_UNITS($VALUE*$1+$2, "V"), BUILD_WITH_UNITS($3, "Counts"), $4)', ch.ESLO, ch.EOFF, channel_data[ic], time_dim)
+                ch.CAL_INPUT.putData(signal)
 
     STORE=store
 
