@@ -27,7 +27,7 @@ import numpy as np
 import MDSplus
 import threading
 # import Queue
-from queue import Queue, Empty
+from Queue import Queue, Empty
 import socket
 import time
 import inspect
@@ -289,16 +289,30 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
     taking a transient capture.
     """
 
-    def arm(self):
+
+    def _arm(self):
         uut = acq400_hapi.Acq400(self.node.data())
         shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot()
+        return None
+
+
+    def arm(self):
+        thread = threading.Thread(target = self._arm)
+        thread.start()
     ARM=arm
 
 
     def store(self):
+        thread = threading.Thread(target = self._store)
+        thread.start()
+        return None
+
+
+    def _store(self):
 
         uut = acq400_hapi.Acq400(self.node.data())
+        while uut.statmon.get_state() != 0: continue
         self.chans = []
         nchans = uut.nchan()
         for ii in range(nchans):
@@ -308,19 +322,20 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         eslo = uut.cal_eslo[1:]
         eoff = uut.cal_eoff[1:]
         channel_data = uut.read_channels()
-        # import code
-        # code.interact(local=locals())
+
+	DT=1000000/float(self.FREQ.data())
+	print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
                 ch.putData(channel_data[ic])
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
-                expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
-
-                ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
-                # import code
-                # code.interact(local=locals())
+		# Dim(Window(samples), range(time))
+                time_dim = MDSplus.Dimension(MDSplus.Window(0, len(channel_data[0]), 1),   MDSplus.Range(0, DT*len(channel_data[0]), DT))
+                # BUILD_SIGNAL(CAL VOLTS, RAW COUNTS, time_dim)
+                signal = MDSplus.Data.compile('BUILD_SIGNAL(BUILD_WITH_UNITS($VALUE*$1+$2, "V"), BUILD_WITH_UNITS($3, "Counts"), $4)', ch.ESLO, ch.EOFF, channel_data[ic], time_dim)
+                ch.CAL_INPUT.putData(signal)
 
     STORE=store
 
@@ -340,7 +355,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         {'path':':Fclk',     'type':'numeric','value':40000000,'options':('write_shot',)},
         {'path':':trg0_src', 'type':'text',   'value':'EXT','options':('write_model',)},
         {'path':':evsel0',   'type':'numeric','value':4,'options':('write_model',)},
-        {'path':':MR10DEC',  'type':'numeric','value':8,'options':('write_model',)},
+        {'path':':MR10DEC',  'type':'numeric','value':32,'options':('write_model',)},
         {'path':':STL',      'type':'text',   'options':('write_model',)}
         ]
 
@@ -356,12 +371,9 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     def create_time_base(self, uut):
         decims = uut.read_decims()
-	print("decims: {}".format(len(decims)))
         dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
         tb_ns = self._create_time_base(decims, dt)
 
-	print("tb_ns: {}".format(len(tb_ns)))
-	print(tb_ns[0:20])
         self.DECIMS.putData(decims)
         self.DT.putData(dt)
         self.TB_NS.putData(tb_ns)
@@ -386,7 +398,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
                 expr = "{} * {} + {}".format(ch, ch.ESLO, ch.EOFF)
                 ch.CAL_INPUT.putData(MDSplus.Data.compile(expr))
 
-	self.create_time_base(uut)
+        self.create_time_base(uut)
         # return None
     STORE=store
 
@@ -394,7 +406,7 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
     def arm():
         # A customised ARM function for the acq2106_MR setup.
         uut = acq400_hapi.Acq400(self.node.data())
-        shot_controller = acq400_hapi.ShotController(uut)
+        shot_controller = acq400_hapi.ShotController([uut])
         shot_controller.run_shot(remote_trigger=self.selects_trg_src(uut, self.trg0_src.data()))
         return None
     ARM = arm
