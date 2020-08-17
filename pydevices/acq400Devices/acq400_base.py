@@ -27,7 +27,7 @@ import numpy as np
 import MDSplus
 import threading
 # import Queue
-from queue import Queue, Empty
+from Queue import Queue, Empty
 import socket
 import time
 import inspect
