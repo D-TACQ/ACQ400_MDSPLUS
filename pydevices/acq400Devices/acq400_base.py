@@ -371,7 +371,10 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
 
     def create_time_base(self, uut):
         decims = uut.read_decims()
-        dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+        try:
+           dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+        except:
+           dt = 25
         tb_ns = self._create_time_base(decims, dt)
 
         self.DECIMS.putData(decims)
