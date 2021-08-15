@@ -40,6 +40,7 @@ except:
     acq400_hapi = __import__('acq400_hapi', globals())
 
 
+print("pgmwashere {} {} HAPI {}".format("acq400_base", __file__, acq400_hapi.__file__))
 
 
 class _ACQ400_BASE(MDSplus.Device):
@@ -323,7 +324,7 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         eoff = uut.cal_eoff[1:]
         channel_data = uut.read_channels()
 
-        DT=1000000/float(self.FREQ.data())
+        DT=1/float(self.FREQ.data())
         print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
