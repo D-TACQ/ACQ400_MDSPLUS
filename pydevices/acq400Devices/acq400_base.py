@@ -68,6 +68,7 @@ class _ACQ400_BASE(MDSplus.Device):
 
     def setChanScale(self,num):
         chan=self.__getattr__('INPUT_%3.3d' % num)
+        print("pgmwashere. BOGUS alert. computed but going nowhere:{}".format(chan))
 
 
     def init(self):
@@ -329,9 +330,11 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
-                ch.putData(channel_data[ic])
+                ch.putData(channel_data[ic])      # root node .. @@todo wants to be CAL_INPUT
+                ch.RAW.putData(channel_data[ic])  # store raw for easy access
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
+                ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
                 # Dim(Window(samples), range(time))
                 time_dim = MDSplus.Dimension(MDSplus.Window(0, len(channel_data[0]), 1),   MDSplus.Range(0, DT*len(channel_data[0]), DT))
                 # BUILD_SIGNAL(CAL VOLTS, RAW COUNTS, time_dim)
@@ -508,15 +511,18 @@ def assemble(cls):
 #    inpfmt = INPFMT2 if cls.nchan < 100 else INPFMT3
     for ch in range(1, cls.nchan+1):
         # expr =
-        cls.parts.append({'path':inpfmt%(ch,), 'type':'signal','options':('no_write_model','write_once',),
-                          'valueExpr':'head.setChanScale(%d)' %(ch,)})
-        cls.parts.append({'path':inpfmt%(ch,)+':DECIMATE', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':inpfmt%(ch,)+':COEFFICIENT','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':inpfmt%(ch,)+':OFFSET', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':inpfmt%(ch,)+':EOFF','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':inpfmt%(ch,)+':ESLO', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        node = inpfmt%(ch,)
+        cls.parts.append({'path':node, 'type':'signal','options':('no_write_model','write_once',)})
+#                          'valueExpr':'head.setChanScale(%d)' %(ch,)})
+        cls.parts.append({'path':node+':RAW', 'type':'signal','options':('no_write_model','write_once',)})
+        cls.parts.append({'path':node+':CAL', 'type':'signal'})        
+        cls.parts.append({'path':node+':DECIMATE', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path':node+':COEFFICIENT','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path':node+':OFFSET', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path':node+':EOFF','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path':node+':ESLO', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
         # cls.parts.append({'path':inpfmt%(ch,)+':CAL_INPUT', 'type':'signal', 'valueExpr':Data.compile(expr), 'options':('no_write_shot')})
-        cls.parts.append({'path':inpfmt%(ch,)+':CAL_INPUT', 'type':'signal'})
+        cls.parts.append({'path':node+':CAL_INPUT', 'type':'signal'})
     return cls
 
 
