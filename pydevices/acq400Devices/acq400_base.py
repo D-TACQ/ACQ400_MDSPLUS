@@ -60,7 +60,7 @@ class _ACQ400_BASE(MDSplus.Device):
         {'path':':INIT_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',50,None),Method(None,'INIT',head))",'options':('no_write_shot',)},
         {'path':':ARM_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',51,None),Method(None,'ARM',head))",'options':('no_write_shot',)},
         {'path':':STORE_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',52,None),Method(None,'STORE',head))",'options':('no_write_shot',)},
-        ]
+    ]
 
     trig_types=[ 'hard', 'soft', 'automatic']
 
@@ -114,7 +114,7 @@ class _ACQ400_ST_BASE(_ACQ400_BASE):
         {'path':':MAX_SEGMENTS','type':'numeric', 'value': 1000,   'options':('no_write_shot',)},
         {'path':':SEG_EVENT',   'type':'text',   'value': 'STREAM','options':('no_write_shot',)},
         {'path':':TRIG_TIME',   'type':'numeric',                  'options':('write_shot',)}
-        ]
+    ]
 
 
     def arm(self):
@@ -176,7 +176,7 @@ class _ACQ400_ST_BASE(_ACQ400_BASE):
             decimator = lcma(self.decim)
 
             if self.seg_length % decimator:
-                 self.seg_length = (self.seg_length // decimator + 1) * decimator
+                self.seg_length = (self.seg_length // decimator + 1) * decimator
 
             self.device_thread.start()
 
@@ -323,15 +323,15 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         eoff = uut.cal_eoff[1:]
         channel_data = uut.read_channels()
 
-	DT=1000000/float(self.FREQ.data())
-	print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
+        DT=1000000/float(self.FREQ.data())
+        print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
                 ch.putData(channel_data[ic])
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
-		# Dim(Window(samples), range(time))
+                # Dim(Window(samples), range(time))
                 time_dim = MDSplus.Dimension(MDSplus.Window(0, len(channel_data[0]), 1),   MDSplus.Range(0, DT*len(channel_data[0]), DT))
                 # BUILD_SIGNAL(CAL VOLTS, RAW COUNTS, time_dim)
                 signal = MDSplus.Data.compile('BUILD_SIGNAL(BUILD_WITH_UNITS($VALUE*$1+$2, "V"), BUILD_WITH_UNITS($3, "Counts"), $4)', ch.ESLO, ch.EOFF, channel_data[ic], time_dim)
@@ -357,24 +357,24 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
         {'path':':evsel0',   'type':'numeric','value':4,'options':('write_model',)},
         {'path':':MR10DEC',  'type':'numeric','value':32,'options':('write_model',)},
         {'path':':STL',      'type':'text',   'options':('write_model',)}
-        ]
+    ]
 
 
     def _create_time_base(self, decims, dt):
         tb = np.zeros(decims.shape[-1])
         ttime = 0
         for ix, dec in enumerate(decims):
-                tb[ix] = ttime
-                ttime += float(dec) * dt
+            tb[ix] = ttime
+            ttime += float(dec) * dt
 
         return tb
 
     def create_time_base(self, uut):
         decims = uut.read_decims()
         try:
-           dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
+            dt = 1 / ((round(float(uut.s0.SIG_CLK_MB_FREQ.split(" ")[1]), -4)) * 1e-9)
         except:
-           dt = 25
+            dt = 25
         tb_ns = self._create_time_base(decims, dt)
 
         self.DECIMS.putData(decims)
