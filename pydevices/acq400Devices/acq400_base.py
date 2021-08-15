@@ -326,20 +326,22 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         channel_data = uut.read_channels()
 
         DT=1/float(self.FREQ.data())
-        print("self.FREQ.data() {} DT {}".format(self.FREQ.data(), DT))
+        nsam = len(channel_data[0])
+        print("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
-                ch.putData(channel_data[ic])      # root node .. @@todo wants to be CAL_INPUT
                 ch.RAW.putData(channel_data[ic])  # store raw for easy access
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
                 ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
-                # Dim(Window(samples), range(time))
-                time_dim = MDSplus.Dimension(MDSplus.Window(0, len(channel_data[0]), 1),   MDSplus.Range(0, DT*len(channel_data[0]), DT))
-                # BUILD_SIGNAL(CAL VOLTS, RAW COUNTS, time_dim)
-                signal = MDSplus.Data.compile('BUILD_SIGNAL(BUILD_WITH_UNITS($VALUE*$1+$2, "V"), BUILD_WITH_UNITS($3, "Counts"), $4)', ch.ESLO, ch.EOFF, channel_data[ic], time_dim)
-                ch.CAL_INPUT.putData(signal)
+# from mdsPutCh, recipe by B.Blackwell C(2007)
+                win = MDSplus.Data.compile('BUILD_WINDOW(0, $1, BUILD_WITH_UNITS(0, "s"))', nsam)
+                axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', 0, nsam*DT, DT)
+                ch.TB.putData(MDSplus.Dimension(win, axis))
+                ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
+                ch.putData(ch.CAL_INPUT)
+
 
     STORE=store
 
@@ -512,17 +514,17 @@ def assemble(cls):
     for ch in range(1, cls.nchan+1):
         # expr =
         node = inpfmt%(ch,)
-        cls.parts.append({'path':node, 'type':'signal','options':('no_write_model','write_once',)})
+        cls.parts.append({'path': node, 'type':'signal','options':('no_write_model','write_once',)})
 #                          'valueExpr':'head.setChanScale(%d)' %(ch,)})
-        cls.parts.append({'path':node+':RAW', 'type':'signal','options':('no_write_model','write_once',)})
-        cls.parts.append({'path':node+':CAL', 'type':'signal'})        
-        cls.parts.append({'path':node+':DECIMATE', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':node+':COEFFICIENT','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':node+':OFFSET', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':node+':EOFF','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        cls.parts.append({'path':node+':ESLO', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
-        # cls.parts.append({'path':inpfmt%(ch,)+':CAL_INPUT', 'type':'signal', 'valueExpr':Data.compile(expr), 'options':('no_write_shot')})
-        cls.parts.append({'path':node+':CAL_INPUT', 'type':'signal'})
+        cls.parts.append({'path': node+':RAW', 'type':'signal','options':('no_write_model','write_once',)})
+        cls.parts.append({'path': node+':CAL', 'type':'signal'})
+        cls.parts.append({'path': node+':TB', 'type':'signal'})
+        cls.parts.append({'path': node+':DECIMATE', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path': node+':COEFFICIENT','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path': node+':OFFSET', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path': node+':EOFF','type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path': node+':ESLO', 'type':'NUMERIC', 'value':1, 'options':('no_write_shot')})
+        cls.parts.append({'path': node+':CAL_INPUT', 'type':'signal'})
     return cls
 
 
