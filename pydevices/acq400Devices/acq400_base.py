@@ -486,6 +486,68 @@ class _ACQ400_MR_BASE(_ACQ400_TR_BASE):
     pass
 
 
+class _ACQ400_M8_BASE(_ACQ400_BASE):
+    """
+    A child class of _ACQ400_BASE that contains the specific methods for
+    taking a transient capture from MGTDRAM8.
+    """
+
+
+    def _arm(self):
+        uut = acq400_hapi.Acq400(self.node.data())
+        print("WORKTODO")
+        return None
+
+
+    def arm(self):
+        thread = threading.Thread(target = self._arm)
+        thread.start()
+    ARM=arm
+
+
+    def store(self):
+        thread = threading.Thread(target = self._store)
+        thread.start()
+        return None
+
+
+    def _store(self):
+
+        uut = acq400_hapi.Acq400(self.node.data())
+        while uut.statmon.get_state() != 0: continue
+        self.chans = []
+        nchans = uut.nchan()
+        for ii in range(nchans):
+            self.chans.append(getattr(self, 'INPUT_%3.3d'%(ii+1)))
+
+        uut.fetch_all_calibration()
+        eslo = uut.cal_eslo[1:]
+        eoff = uut.cal_eoff[1:]
+        channel_data = uut.read_channels()
+
+        DT=1/float(self.FREQ.data())
+        nsam = len(channel_data[0])
+        print("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
+
+        for ic, ch in enumerate(self.chans):
+            if ch.on:
+                ch.RAW.putData(channel_data[ic])  # store raw for easy access
+                ch.EOFF.putData(float(eoff[ic]))
+                ch.ESLO.putData(float(eslo[ic]))
+                ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
+# from mdsPutCh, recipe by B.Blackwell C(2007)
+                win = MDSplus.Data.compile('BUILD_WINDOW(0, $1, BUILD_WITH_UNITS(0, "s"))', nsam)
+                axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', 0, nsam*DT, DT)
+                ch.TB.putData(MDSplus.Dimension(win, axis))
+                ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
+                ch.putData(ch.CAL_INPUT)
+
+
+    STORE=store
+
+    pass
+
+
 def int_key_chan(elem):
     return int(elem.split('_')[2])
 
