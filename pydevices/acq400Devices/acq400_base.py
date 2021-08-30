@@ -573,7 +573,7 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
                 
-         logging.debug("{}.{} complete".format("_ACQ400_M8_BASE", "store"))
+        logging.debug("{}.{} complete".format("_ACQ400_M8_BASE", "store"))
 
 
     STORE=store
