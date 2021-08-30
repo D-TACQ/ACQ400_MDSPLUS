@@ -33,6 +33,7 @@ import time
 import inspect
 import os
 
+import logging
 
 try:
     acq400_hapi = __import__('acq400_hapi', globals(), level=1)
@@ -506,15 +507,27 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
 
 
     def store(self):
+        print("{}.store()".format("_ACQ400_M8_BASE"))
         thread = threading.Thread(target = self._store)
         thread.start()
         return None
-
-
+      
+        
     def _store(self):
-
-        uut = acq400_hapi.Acq400(self.node.data())
-        while uut.statmon.get_state() != 0: continue
+        uutname = self.node.data()
+        logging.basicConfig(filename="{}_M8.log".format(uutname),
+                            format='%(asctime)s %(levelname)-8s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            level=logging.DEBUG)
+        logging.debug("{}.{}".format("_ACQ400_M8_BASE", "store"))
+        uut = acq400_hapi.factory(uutname)
+        
+        while uut.statmon.get_state() != 0: 
+            continue
+        rc = uut.create_mgtdram_pull_client()
+        push_buffers = acq400_hapi.Acq400.intpv(uut.cA.SIG_MGT_PUSH_BUFS_COUNT)
+        uut.cA.SIG_MGT_PULL_BUFS_RESET = '1'
+        
         self.chans = []
         nchans = uut.nchan()
         for ii in range(nchans):
@@ -523,15 +536,33 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
         uut.fetch_all_calibration()
         eslo = uut.cal_eslo[1:]
         eoff = uut.cal_eoff[1:]
-        channel_data = uut.read_channels()
+        
+        M8_mirror = None
+        nbytes = push_buffers*acq400_hapi.Acq2106_Mgtdram8.MGT_BLOCK_BYTES
+        logging.debug("call get_blocks {}".format(nbytes))
+        
+        for buffer in rc.get_blocks(nbytes, data_size=uut.data_size()):
+            
+            
+            if buffer is None or len(buffer) == 0:
+                print("Buffer len 0 quit")
+                break
+            if M8_mirror is None:
+                M8_mirror = buffer
+            else:
+                M8_mirror += buffer
+                
+            logging.debug("M8_mirror len:{} bytes".format(len(M8_mirror)))
+            
+        channel_data = M8_mirror
 
         DT=1/float(self.FREQ.data())
-        nsam = len(channel_data[0])
+        nsam = len(channel_data)/nchans
         print("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
-                ch.RAW.putData(channel_data[ic])  # store raw for easy access
+                ch.RAW.putData(channel_data[ic::nchans])  # store raw for easy access
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
                 ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
@@ -541,6 +572,8 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
                 ch.TB.putData(MDSplus.Dimension(win, axis))
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
+                
+         logging.debug("{}.{} complete".format("_ACQ400_M8_BASE", "store"))
 
 
     STORE=store
