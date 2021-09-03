@@ -310,10 +310,9 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         thread = threading.Thread(target = self._store)
         thread.start()
         return None
-
+    STORE=store
 
     def _store(self):
-
         uut = acq400_hapi.Acq400(self.node.data())
         while uut.statmon.get_state() != 0: continue
         self.chans = []
@@ -342,10 +341,12 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
                 ch.TB.putData(MDSplus.Dimension(win, axis))
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
-
-
-    STORE=store
-
+        return None
+    
+    def storeb(self):
+        ''' storeb: non-blocking for use direct from TCL> '''        
+        return self._store()       
+    STOREB=storeb
     pass
 
 
@@ -506,11 +507,7 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
     ARM=arm
 
 
-    def store(self):
-        print("{}.store()".format("_ACQ400_M8_BASE"))
-        thread = threading.Thread(target = self._store)
-        thread.start()
-        return None
+    
       
         
     def _store(self):
@@ -573,10 +570,22 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
                 
+        MDSplus.Event.setevent("{}st99".format(uutname))
+                
         logging.debug("{}.{} complete".format("_ACQ400_M8_BASE", "store"))
 
-
+    def store(self):
+        ''' store: non-blocking for use with dispatcher '''
+        print("{}.store()".format("_ACQ400_M8_BASE"))
+        thread = threading.Thread(target = self._store)
+        thread.start()
+        return None
     STORE=store
+    
+    def storeb(self):
+        ''' storeb: non-blocking for use direct from TCL> '''
+        return self._store()       
+    STOREB=storeb
 
     pass
 
