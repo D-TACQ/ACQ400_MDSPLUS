@@ -547,11 +547,14 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
             if M8_mirror is None:
                 M8_mirror = buffer
             else:
-                M8_mirror += buffer
+                logging.debug("concat M8_mirror len:{}, buffer:{} ".format(len(M8_mirror), len(buffer)))
+                M8_mirror = np.concatenate((M8_mirror, buffer), axis=0)
                 
-            logging.debug("M8_mirror len:{} bytes".format(len(M8_mirror)))
+            logging.debug("M8_mirror len:{} * {}".format(len(M8_mirror), M8_mirror.dtype))
             
         channel_data = M8_mirror
+        logging.debug("channel_data len:{} * {}".format(len(channel_data), channel_data.dtype))
+        logging.debug("samples per channel {}".format(len(channel_data)/nchans))
 
         DT=1/float(self.FREQ.data())
         nsam = len(channel_data)/nchans
