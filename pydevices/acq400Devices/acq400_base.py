@@ -558,11 +558,15 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
 
         DT=1/float(self.FREQ.data())
         nsam = len(channel_data)/nchans
-        print("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
+        logging.debug("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
+        _cmap = uut.s0.sr("channel_mapping=mgtdram")
+        cmap = eval('('+_cmap+')')
+        if len(cmap) < nchans:
+            logging.error("channel map length {} < nchans {}". format(len(cmap), nchans))
 
         for ic, ch in enumerate(self.chans):
             if ch.on:
-                ch.RAW.putData(channel_data[ic::nchans])  # store raw for easy access
+                ch.RAW.putData(channel_data[cmap[ic]::nchans])  # store raw for easy access
                 ch.EOFF.putData(float(eoff[ic]))
                 ch.ESLO.putData(float(eslo[ic]))
                 ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
