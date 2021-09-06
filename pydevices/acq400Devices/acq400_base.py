@@ -58,6 +58,7 @@ class _ACQ400_BASE(MDSplus.Device):
         {'path':':TRIG_MODE','type':'text', 'value': 'role_default', 'options':('no_write_shot',)},
         {'path':':ROLE','type':'text', 'value': 'fpmaster', 'options':('no_write_shot',)},
         {'path':':FREQ','type':'numeric', 'value': int(1e6), 'options':('no_write_shot',)},
+        {'path':':TOFF','type':'numeric', 'value': int(0), 'options':('no_write_shot',)},
         {'path':':SAMPLES','type':'numeric', 'value': int(1e5), 'options':('no_write_shot',)},
         {'path':':INIT_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',50,None),Method(None,'INIT',head))",'options':('no_write_shot',)},
         {'path':':ARM_ACTION', 'type':'action', 'valueExpr':"Action(Dispatch('CAMAC_SERVER','INIT',51,None),Method(None,'ARM',head))",'options':('no_write_shot',)},
@@ -329,6 +330,8 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
         nsam = len(channel_data[0])
         print("self.FREQ.data() nsam:{} {} DT {}".format(nsam, self.FREQ.data(), DT))
 
+        axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', self.TOFF.data(), nsam*DT, DT)
+                
         for ic, ch in enumerate(self.chans):
             if ch.on:
                 ch.RAW.putData(channel_data[ic])  # store raw for easy access
@@ -337,7 +340,6 @@ class _ACQ400_TR_BASE(_ACQ400_BASE):
                 ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
 # from mdsPutCh, recipe by B.Blackwell C(2007)
                 win = MDSplus.Data.compile('BUILD_WINDOW(0, $1, BUILD_WITH_UNITS(0, "s"))', nsam)
-                axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', 0, nsam*DT, DT)
                 ch.TB.putData(MDSplus.Dimension(win, axis))
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
@@ -564,6 +566,8 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
         if len(cmap) < nchans:
             logging.error("channel map length {} < nchans {}". format(len(cmap), nchans))
 
+        axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', self.TOFF.data(), nsam*DT, DT)
+        
         for ic, ch in enumerate(self.chans):
             if ch.on:
                 ch.RAW.putData(channel_data[cmap[ic]::nchans])  # store raw for easy access
@@ -572,7 +576,6 @@ class _ACQ400_M8_BASE(_ACQ400_BASE):
                 ch.CAL.putData(MDSplus.Data.compile('BUILD_WITH_UNITS($3*$1+$2, "V")', ch.ESLO, ch.EOFF, ch.RAW))  # does this make a COPY of ch.RAW?
 # from mdsPutCh, recipe by B.Blackwell C(2007)
                 win = MDSplus.Data.compile('BUILD_WINDOW(0, $1, BUILD_WITH_UNITS(0, "s"))', nsam)
-                axis = MDSplus.Data.compile('BUILD_WITH_UNITS(BUILD_RANGE($1, $2, $3), "s")', 0, nsam*DT, DT)
                 ch.TB.putData(MDSplus.Dimension(win, axis))
                 ch.CAL_INPUT.putData(MDSplus.Data.compile('BUILD_SIGNAL($1, $2, $3)', ch.CAL, ch.RAW, ch.TB))
                 ch.putData(ch.CAL_INPUT)
